@@ -1,7 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {.frontend-namespace}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: calc-frontend-app
+  namespace: {.frontend-namespace}
   labels:
     app: calc-frontend-app
 spec:
@@ -29,28 +35,26 @@ spec:
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
-            path: /ping
+            path: /healthz
             port: 8080
         readinessProbe:
           httpGet:
-            path: /ping
+            path: /healthz
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
         resources:
           requests:
-            memory: "250Mi"
-            cpu: "200m"
+            memory: "100Mi"
+            cpu: "20m"
           limits:
-            memory: "500Mi"
-            cpu: "300m"
+            memory: "400Mi"
+            cpu: "200m"
         env: 
           - name: "PORT"
             value: "8080"
           - name: "VERSION"
             value: "{.version}"
-          - name: "ENDPOINT_HOST"
-            value: "calc-frontend-svc"
           - name: "ENDPOINT_PORT"
             value: "80"
           - name: "BUGGY"
@@ -58,8 +62,8 @@ spec:
           - name: "LAGGY"
             value: "false"
           - name: "ENDPOINT"
-            value: "calc-backend-svc"
-          - name: "INSTRUMENTATIONKEY"
+            value: "http://http-backend.{.backend-namespace}.svc.cluster.local"
+          - name: "AIC_STRING"
             valueFrom:
               secretKeyRef:
                 name: appconfig
@@ -68,10 +72,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: calc-frontend-svc
+  name: http-frontend
+  namespace: {.frontend-namespace}
   labels:
     app.kubernetes.io/name: calc-frontend-service
     app.kubernetes.io/version: 1.0.0
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "ing-4-subnet"
 spec:
   ports:
   - name: http
@@ -79,4 +87,4 @@ spec:
     targetPort: 8080
   selector:
     app: calc-frontend-app
-  type: ClusterIP
+  type: LoadBalancer
